@@ -335,13 +335,13 @@ def render_station_picker():
 
 # ---------------------------------------------------------------- "Какво свири?"
 # 1) ICY stream metadata (StreamTitle) — instant, most foreign stations send it;
-# 2) otherwise Shazam: shazam_recognize.py (shazamio + ffmpeg from packages.txt) recognises the
+# 2) otherwise Shazam: shazam_recognize.py (shazamio-core + ffmpeg from packages.txt) recognises the
 #    last ~10 s of the stream in a subprocess. That takes ~15 s, so it runs in a background
 #    thread and the card polls for the result.
 
 SHAZAM_PY = Path(sys.executable)
 SHAZAM_SCRIPT = Path(__file__).with_name("shazam_recognize.py")
-SHAZAM_OK = importlib.util.find_spec("shazamio") is not None
+SHAZAM_OK = importlib.util.find_spec("shazamio_core") is not None
 
 
 # Live follow while the card is open: one reader thread per station keeps the stream open,

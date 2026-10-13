@@ -1,6 +1,6 @@
 """Recognise the song currently playing on an internet-radio stream with Shazam.
 
-Called by radio.py as a subprocess (keeps shazamio's asyncio loop out of Streamlit's process):
+Called by radio.py as a subprocess (keeps the asyncio loop out of Streamlit's process):
 
     python shazam_recognize.py <stream_url> [seconds]
     python shazam_recognize.py --file <audio_bytes_file>   (already captured audio)
@@ -11,6 +11,7 @@ import asyncio
 import json
 import sys
 import time
+import uuid
 from urllib.parse import urljoin
 
 import requests
@@ -51,20 +52,38 @@ def grab_hls(url, seconds):
 WINDOW = 10      # seconds of audio per Shazam attempt
 STEP = 8         # offset between attempts (windows overlap a little)
 
+# The request shazamio sends. shazamio itself isn't used: it pins shazamio-core==1.1.2, which has
+# no wheel for Python 3.14 (Streamlit Cloud), while shazamio-core 2.x ships an abi3 wheel.
+TAG_URL = ("https://amp.shazam.com/discovery/v5/en-US/GB/iphone/-/tag/{}/{}?sync=true&webv3=true"
+           "&sampling=true&connected=&shazamapiversion=v3&sharehub=true&hubv5minorversion=v5.1"
+           "&hidelb=true&video=v3")
+TAG_HEADERS = {"X-Shazam-Platform": "IPHONE", "X-Shazam-AppVersion": "14.1.0", "Accept": "*/*",
+               "Accept-Language": "en-US", "User-Agent": "Shazam/3685 CFNetwork/1197 Darwin/20.0.0"}
+
+
+def _tag(sig):
+    """Look a fingerprint up in Shazam's catalogue; returns the matched track dict or {}."""
+    body = {"timezone": "Europe/Sofia", "timestamp": sig.timestamp, "context": {}, "geolocation": {},
+            "signature": {"uri": sig.signature.uri, "samplems": sig.signature.samples}}
+    url = TAG_URL.format(str(uuid.uuid4()).upper(), str(uuid.uuid4()).upper())
+    r = requests.post(url, json=body, headers=TAG_HEADERS, timeout=15)
+    r.raise_for_status()
+    return r.json().get("track") or {}
+
 
 async def recognize(data):
     """Decode the raw stream to audio first (Shazam on raw MP3/AAC stream bytes misses a lot),
     then try successive 10 s windows until one is recognised (talk/jingles fail, music hits)."""
     import io
     from pydub import AudioSegment
-    from shazamio import Shazam
+    from shazamio_core import Recognizer
     audio = AudioSegment.from_file(io.BytesIO(data))
-    shazam = Shazam()
+    recognizer = Recognizer(segment_duration_seconds=WINDOW)
     last = max(0, len(audio) // 1000 - WINDOW)
     for start in range(last, -1, -STEP):  # newest audio first: a song that just started wins
         buf = io.BytesIO()
         audio[start * 1000:(start + WINDOW) * 1000].export(buf, format="wav")
-        track = (await shazam.recognize(buf.getvalue())).get("track") or {}
+        track = _tag(await recognizer.recognize_bytes(buf.getvalue()))
         if track:
             images = track.get("images") or {}
             return {

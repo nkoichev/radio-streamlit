@@ -1,5 +1,5 @@
 streamlit==1.56.0
 requests
-shazamio
+shazamio-core>=2.0.0
 pydub
 audioop-lts; python_version >= "3.13"
