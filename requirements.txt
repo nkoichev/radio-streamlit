@@ -1,0 +1,5 @@
+streamlit==1.56.0
+requests
+shazamio
+pydub
+audioop-lts; python_version >= "3.13"

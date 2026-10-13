@@ -1,0 +1,8 @@
+[server]
+# Keep a session whose websocket dropped (idle tab, sleeping phone) for 12 h instead of 120 s,
+# so clicking after a pause resumes it instead of starting over.
+disconnectedSessionTTL = 43200
+
+[theme]
+# base is not set on purpose: it enables the ⋮ menu System / Light / Dark switch.
+# Palettes on top of light/dark: themes.py ("Тема" in the sidebar).
