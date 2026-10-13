@@ -786,7 +786,24 @@ _PLAYER_JS = r"""
       Object.assign(box.style, { left: x + "px", top: y + "px", right: "auto", bottom: "auto" });
       return { x, y };
     };
-    R.place = () => { const p = store.get("veasRadioPos"); if (p) place(p.x, p.y); };
+    // Until the user drags it: next to the "Какво свири?" button (under it when there's no room),
+    // following the button while the page scrolls; bottom-right when the button isn't there.
+    // Under the button (phones) its container gets a bottom margin, so the player doesn't cover the list.
+    const gap = (px) => { const c = doc.querySelector(".st-key-radio_np_btn"); if (c) c.style.marginBottom = px; };
+    R.place = () => {
+      const p = store.get("veasRadioPos");
+      if (p) { gap(""); return place(p.x, p.y); }
+      const a = doc.querySelector(".st-key-radio_np_btn button");
+      if (!a) { Object.assign(box.style, { left: "auto", top: "auto", right: "16px", bottom: "16px" }); return; }
+      const ar = a.getBoundingClientRect(), r = box.getBoundingClientRect();
+      if (innerWidth - 4 >= ar.right + 34 + r.width) { gap(""); place(ar.right + 34, ar.top + (ar.height - r.height) / 2); }
+      else { gap(r.height + 12 + "px"); place(ar.left, ar.bottom + 8); }
+    };
+    const follow = setInterval(() => {
+      if (!box.isConnected) return clearInterval(follow);   // replaced by a newer player version
+      if (box.style.display === "none") gap("");
+      else if (!store.get("veasRadioPos")) R.place();
+    }, 250);
     box.addEventListener("pointerdown", (e) => {
       if (e.button !== 0 || e.target.closest("button, input")) return;
       const r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
